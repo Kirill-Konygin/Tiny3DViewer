@@ -1,0 +1,44 @@
+# Visual Studio user settings
+.vs/
+**/.vs/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Build directories
+[Bb]uild/
+[Bb]uild-*/
+**/Debug/
+**/Release/
+**/x64/
+**/Win32/
+
+# MSVC build artifacts
+*.obj
+*.pdb
+*.idb
+*.ilk
+*.exe
+*.dll
+*.lib
+*.exp
+*.iobj
+*.ipdb
+*.tlog
+*.recipe
+*.lastbuildstate
+
+# CMake-generated files
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+CTestTestfile.cmake
+Makefile
+
+# Editor and operating-system files
+.vscode/
+*.VC.db
+*.VC.opendb
+.DS_Store
+Thumbs.db
