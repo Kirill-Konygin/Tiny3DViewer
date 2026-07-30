@@ -14,6 +14,13 @@ set(GLFW_INSTALL OFF CACHE BOOL "" FORCE)
 
 add_subdirectory(libs/glfw)
 
+# GLM is a header-only mathematics library.
+set(GLM_BUILD_LIBRARY OFF CACHE BOOL "" FORCE)
+set(GLM_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(GLM_BUILD_INSTALL OFF CACHE BOOL "" FORCE)
+
+add_subdirectory(libs/glm)
+
 add_library(glad STATIC
     libs/glad/src/glad.c
 )
@@ -40,6 +47,7 @@ target_link_libraries(Tiny3DViewer
     PRIVATE
         glad
         glfw
+        glm::glm
         OpenGL::GL
 )
 
