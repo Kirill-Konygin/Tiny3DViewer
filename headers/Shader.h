@@ -12,6 +12,8 @@ public:
 private:
 
 	std::string ProcessPathToShader(const std::string& pathToShader);
+	void CheckCompileErrors(GLuint shader) const;
+	void CheckLinkErrors(GLuint program) const;
 
 	template<GLenum ShaderType>
 	GLuint CompileShader(const std::string& code) {
@@ -19,6 +21,8 @@ private:
 		GLuint shaderId = glCreateShader(ShaderType);
 		glShaderSource(shaderId, 1, &source, nullptr);
 		glCompileShader(shaderId);
+		CheckCompileErrors(shaderId);
+
 		return shaderId;
 	}
 
