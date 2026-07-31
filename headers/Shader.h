@@ -8,6 +8,7 @@ class Shader {
 public:
 	Shader(const std::string& pathToVertexShader,const std::string& pathToFragmentShader);
 	void Bind()const;
+	void SetInt(const std::string& name, int value) const;
 
 private:
 

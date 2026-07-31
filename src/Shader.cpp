@@ -31,6 +31,11 @@ void Shader::Bind() const
 	glUseProgram(id);
 }
 
+void Shader::SetInt(const std::string& name, int value) const
+{
+    glUniform1i(glGetUniformLocation(id, name.c_str()), value);
+}
+
 void Shader::CheckCompileErrors(GLuint shader) const
 {
 	GLint success = GL_FALSE;

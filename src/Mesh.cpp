@@ -3,6 +3,7 @@
 
 
 Mesh::Mesh(const std::vector<Vertex>& vertices, const std::vector<std::uint32_t>& indices)
+    : indexCount(indices.size())
 {
     glGenVertexArrays(1, &VAO);
     glGenBuffers(1, &VBO);
@@ -19,6 +20,15 @@ Mesh::Mesh(const std::vector<Vertex>& vertices, const std::vector<std::uint32_t>
     glEnableVertexAttribArray(0);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)0);
 
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(
+        1,
+        2,
+        GL_FLOAT,
+        GL_FALSE,
+        sizeof(Vertex),
+        reinterpret_cast<void*>(offsetof(Vertex, texCoord)));
+
     glBindVertexArray(0);
 }
 
@@ -27,4 +37,9 @@ Mesh::~Mesh()
     glDeleteVertexArrays(1, &VAO);
     glDeleteBuffers(1, &EBO);
     glDeleteBuffers(1, &VBO);
+}
+
+void Mesh::Bind() const
+{
+    glBindVertexArray(VAO);
 }
