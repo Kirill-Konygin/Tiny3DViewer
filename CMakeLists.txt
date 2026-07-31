@@ -34,13 +34,20 @@ find_package(OpenGL REQUIRED)
 
 add_executable(Tiny3DViewer
     src/main.cpp
+    src/Material.cpp
+    src/Mesh.cpp
+    src/Shader.cpp
     src/Window.cpp
+    headers/Material.h
+    headers/Mesh.h
+    headers/Shader.h
     headers/Window.h
 )
 
 target_include_directories(Tiny3DViewer
     PRIVATE
         "${CMAKE_CURRENT_SOURCE_DIR}/headers"
+        "${CMAKE_CURRENT_SOURCE_DIR}/libs/stb"
 )
 
 target_link_libraries(Tiny3DViewer
