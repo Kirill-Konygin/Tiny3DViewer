@@ -12,16 +12,12 @@ struct Vertex {
     glm::vec2 texCoord;
 };
 
-class Mesh {
+class RenderMesh {
 public:
-    Mesh(const std::vector<Vertex>& vertices,
+    RenderMesh(const std::vector<Vertex>& vertices,
          const std::vector<std::uint32_t>& indices);
-    ~Mesh();
-    void Bind() const;
-
-    inline std::size_t getIndexCount() {
-        return indexCount;
-    }
+    ~RenderMesh();
+    void Draw() const;
 private:
 
     GLuint VAO = 0;

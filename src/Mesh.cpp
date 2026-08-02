@@ -2,7 +2,7 @@
 #include <glad/glad.h>
 
 
-Mesh::Mesh(const std::vector<Vertex>& vertices, const std::vector<std::uint32_t>& indices)
+RenderMesh::RenderMesh(const std::vector<Vertex>& vertices, const std::vector<std::uint32_t>& indices)
     : indexCount(indices.size())
 {
     glGenVertexArrays(1, &VAO);
@@ -32,14 +32,16 @@ Mesh::Mesh(const std::vector<Vertex>& vertices, const std::vector<std::uint32_t>
     glBindVertexArray(0);
 }
 
-Mesh::~Mesh()
+RenderMesh::~RenderMesh()
 {
     glDeleteVertexArrays(1, &VAO);
     glDeleteBuffers(1, &EBO);
     glDeleteBuffers(1, &VBO);
 }
 
-void Mesh::Bind() const
+void RenderMesh::Draw() const
 {
     glBindVertexArray(VAO);
+    glDrawElements(GL_TRIANGLES, indexCount, GL_UNSIGNED_INT, nullptr);
+    glBindVertexArray(0);
 }
