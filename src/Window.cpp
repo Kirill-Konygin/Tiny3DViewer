@@ -35,12 +35,15 @@ Window::Window(const char* title, int width, int height)
         exit(1);
     }
 
-    glfwSetFramebufferSizeCallback(handle_, framebufferSizeCallback);
+    addFramebufferSizeCallback([](int width, int height) {
+        glViewport(0, 0, width, height);
+    });
 
-    int framebufferWidth = 0;
-    int framebufferHeight = 0;
-    glfwGetFramebufferSize(handle_, &framebufferWidth, &framebufferHeight);
-    framebufferSizeCallback(handle_, framebufferWidth, framebufferHeight);
+    glfwSetWindowUserPointer(handle_, this);
+    glfwSetFramebufferSizeCallback(handle_, framebufferSizeCallback);
+    glfwSetCursorPosCallback(handle_, mouseCallback);
+    glfwSetMouseButtonCallback(handle_, mouseButtonCallback);
+    glfwSetScrollCallback(handle_, scrollCallback);
 }
 
 Window::~Window()
@@ -69,9 +72,85 @@ void Window::clear()
     glClear(GL_COLOR_BUFFER_BIT);
 }
 
-void Window::framebufferSizeCallback(GLFWwindow*, int width, int height)
+unsigned int Window::addFramebufferSizeCallback(framebufferSizeCallback_t callback)
 {
-    glViewport(0, 0, width, height);
+    const unsigned int callbackId = getNextCallbackId();
+    framebufferSizeCallbacks.emplace(callbackId, std::move(callback));
+    return callbackId;
+}
+
+unsigned int Window::addMouseCallback(mouseCallback_t callback)
+{
+    const unsigned int callbackId = getNextCallbackId();
+    mouseCallbacks.emplace(callbackId, std::move(callback));
+    return callbackId;
+}
+
+unsigned int Window::addMouseButtonCallback(mouseButtonCallback_t callback)
+{
+    const unsigned int callbackId = getNextCallbackId();
+    mouseButtonCallbacks.emplace(callbackId, std::move(callback));
+    return callbackId;
+}
+
+unsigned int Window::addScrollCallback(scrollCallback_t callback)
+{
+    const unsigned int callbackId = getNextCallbackId();
+    scrollCallbacks.emplace(callbackId, std::move(callback));
+    return callbackId;
+}
+
+bool Window::removeCallback(unsigned int id)
+{
+    return framebufferSizeCallbacks.erase(id) || mouseCallbacks.erase(id) || mouseButtonCallbacks.erase(id) || scrollCallbacks.erase(id);
+}
+
+void Window::framebufferSizeCallback(GLFWwindow* window, int width, int height)
+{
+    if(Window* ptr = static_cast<Window*>(glfwGetWindowUserPointer(window)))
+        for (const auto& [_,callback] : ptr->framebufferSizeCallbacks) {
+            callback(width, height);
+        }
+}
+
+void Window::mouseCallback(GLFWwindow* window, double xposIn, double yposIn)
+{
+    if (Window* ptr = static_cast<Window*>(glfwGetWindowUserPointer(window)))
+        for (const auto& [_, callback] : ptr->mouseCallbacks) {
+            callback(xposIn, yposIn);
+        }
+}
+
+void Window::mouseButtonCallback(GLFWwindow* window, int button, int action, int mods)
+{
+    if (Window* ptr = static_cast<Window*>(glfwGetWindowUserPointer(window)))
+        for (const auto& [_, callback] : ptr->mouseButtonCallbacks) {
+            callback(button, action, mods);
+        }
+}
+
+void Window::scrollCallback(GLFWwindow* window, double xoffset, double yoffset)
+{
+    if (Window* ptr = static_cast<Window*>(glfwGetWindowUserPointer(window)))
+        for (const auto& [_, callback] : ptr->scrollCallbacks) {
+            callback(xoffset, yoffset);
+        }
+}
+
+unsigned int Window::getNextCallbackId()
+{
+    do
+    {
+        lastCallbackId++;
+    }
+    while (
+          framebufferSizeCallbacks.contains(lastCallbackId)
+      ||  mouseCallbacks.contains(lastCallbackId)
+      ||  mouseButtonCallbacks.contains(lastCallbackId)
+      ||  scrollCallbacks.contains(lastCallbackId)
+    );
+
+    return lastCallbackId;
 }
 
 void Window::processInput() const
