@@ -35,6 +35,8 @@ Window::Window(const char* title, int width, int height)
         exit(1);
     }
 
+    glEnable(GL_DEPTH_TEST);
+
     addFramebufferSizeCallback([](int width, int height) {
         glViewport(0, 0, width, height);
     });
@@ -69,7 +71,7 @@ void Window::update()
 void Window::clear()
 {
     glClearColor(0.5f, 0.5f, 0.5f, 1.0f);
-    glClear(GL_COLOR_BUFFER_BIT);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 }
 
 unsigned int Window::addFramebufferSizeCallback(framebufferSizeCallback_t callback)
