@@ -1,6 +1,7 @@
 #pragma once
 
 #include <glad/glad.h>
+#include <glm/glm.hpp>
 #include <string>
 
 class Shader {
@@ -9,6 +10,7 @@ public:
 	Shader(const std::string& pathToVertexShader,const std::string& pathToFragmentShader);
 	void Bind()const;
 	void SetInt(const std::string& name, int value) const;
+	void SetMat4(const std::string& name, const glm::mat4& value) const;
 
 private:
 
