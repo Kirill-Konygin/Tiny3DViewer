@@ -7,3 +7,6 @@
 [submodule "stb"]
 	path = libs/stb
 	url = https://github.com/nothings/stb.git
+[submodule "assimp"]
+	path = libs/assimp
+	url = https://github.com/assimp/assimp.git

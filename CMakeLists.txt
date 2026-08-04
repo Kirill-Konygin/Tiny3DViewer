@@ -6,6 +6,9 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+# Build bundled dependencies as static libraries unless explicitly overridden.
+option(BUILD_SHARED_LIBS "Build dependencies as shared libraries" OFF)
+
 # GLFW is included in the repository, so only build the library itself.
 set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
@@ -21,6 +24,16 @@ set(GLM_BUILD_INSTALL OFF CACHE BOOL "" FORCE)
 
 add_subdirectory(libs/glm)
 
+# Assimp is included in the repository. Only build the library required by the
+# viewer; its tests, tools, samples, and install rules are not part of this app.
+set(ASSIMP_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(ASSIMP_BUILD_ASSIMP_TOOLS OFF CACHE BOOL "" FORCE)
+set(ASSIMP_BUILD_SAMPLES OFF CACHE BOOL "" FORCE)
+set(ASSIMP_INSTALL OFF CACHE BOOL "" FORCE)
+set(ASSIMP_WARNINGS_AS_ERRORS OFF CACHE BOOL "" FORCE)
+
+add_subdirectory(libs/assimp)
+
 add_library(glad STATIC
     libs/glad/src/glad.c
 )
@@ -33,13 +46,22 @@ target_include_directories(glad
 find_package(OpenGL REQUIRED)
 
 add_executable(Tiny3DViewer
+    src/Camera.cpp
     src/main.cpp
     src/Material.cpp
     src/Mesh.cpp
+    src/Model.cpp
+    src/ModelLoader.cpp
+    src/OrbitalTransform.cpp
     src/Shader.cpp
     src/Window.cpp
+    headers/Camera.h
     headers/Material.h
     headers/Mesh.h
+    headers/Model.h
+    headers/ModelLoader.h
+    headers/OrbitalTransform.h
+    headers/RenderObject.h
     headers/Shader.h
     headers/Window.h
 )
@@ -55,6 +77,7 @@ target_link_libraries(Tiny3DViewer
         glad
         glfw
         glm::glm
+        assimp::assimp
         OpenGL::GL
 )
 
