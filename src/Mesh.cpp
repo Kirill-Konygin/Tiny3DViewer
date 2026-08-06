@@ -37,6 +37,15 @@ RenderMesh::RenderMesh(const std::vector<Vertex>& vertices, const std::vector<st
         sizeof(Vertex),
         reinterpret_cast<void*>(offsetof(Vertex, normal)));
 
+    glEnableVertexAttribArray(3);
+    glVertexAttribPointer(
+        3,
+        4,
+        GL_FLOAT,
+        GL_FALSE,
+        sizeof(Vertex),
+        reinterpret_cast<void*>(offsetof(Vertex, tangent)));
+
     glBindVertexArray(0);
 }
 

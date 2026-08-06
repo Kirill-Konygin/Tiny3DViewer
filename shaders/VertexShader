@@ -2,16 +2,36 @@
 layout (location = 0) in vec3 aPos;
 layout (location = 1) in vec2 aTexCoord;
 layout (location = 2) in vec3 aNormal;
+layout (location = 3) in vec4 aTangent;
 
 uniform mat4 transformMatrix;
 uniform mat4 modelMatrix;
 
 out vec2 TexCoord;
 out vec3 Normal;
+out vec3 Tangent;
+out vec3 Bitangent;
+out float TangentBasisValidity;
 
 void main()
 {
 	gl_Position = transformMatrix * vec4(aPos, 1.0);
 	TexCoord = vec2(aTexCoord.x, aTexCoord.y);
-	Normal = mat3(transpose(inverse(modelMatrix))) * aNormal;
+
+	mat3 modelTransform = mat3(modelMatrix);
+	mat3 normalTransform = transpose(inverse(modelTransform));
+	Normal = normalize(normalTransform * aNormal);
+	TangentBasisValidity = abs(aTangent.w);
+
+	if (TangentBasisValidity > 0.5)
+	{
+		vec3 transformedTangent = modelTransform * aTangent.xyz;
+		Tangent = normalize(transformedTangent - dot(transformedTangent, Normal) * Normal);
+		Bitangent = normalize(cross(Normal, Tangent)) * aTangent.w;
+	}
+	else
+	{
+		Tangent = vec3(0.0);
+		Bitangent = vec3(0.0);
+	}
 }

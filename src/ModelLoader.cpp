@@ -50,9 +50,7 @@ glm::mat4 toGlmMatrix(const aiMatrix4x4& matrix)
 std::optional<Model> ModelLoader::LoadModel(const std::filesystem::path& pathToModel)
 {
     Assimp::Importer import;
-    const aiScene* scene = import.ReadFile(
-        pathToModel.string(),
-        aiProcess_Triangulate | aiProcess_FlipUVs | aiProcess_GenSmoothNormals);
+    const aiScene* scene = import.ReadFile(pathToModel.string(), aiProcess_Triangulate | aiProcess_FlipUVs | aiProcess_GenSmoothNormals | aiProcess_CalcTangentSpace);
 
     if (!scene || (scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE) || !scene->mRootNode)
         return std::nullopt;
@@ -136,6 +134,21 @@ std::shared_ptr<RenderMesh> ModelLoader::processMesh(const aiMesh* mesh) const
         {
             vertex.texCoord.x = mesh->mTextureCoords[0][i].x;
             vertex.texCoord.y = mesh->mTextureCoords[0][i].y;
+        }
+
+        if (mesh->HasTangentsAndBitangents())
+        {
+            const aiVector3D& tangent = mesh->mTangents[i];
+            const aiVector3D& bitangent = mesh->mBitangents[i];
+            const aiVector3D& normal = mesh->mNormals[i];
+            const float tangentLengthSquared = tangent.SquareLength();
+            const float bitangentLengthSquared = bitangent.SquareLength();
+
+            if (tangentLengthSquared > 0.0f && bitangentLengthSquared > 0.0f)
+            {
+                const float handedness = ((normal ^ tangent) * bitangent) < 0.0f ? -1.0f : 1.0f;
+                vertex.tangent = glm::vec4(tangent.x, tangent.y, tangent.z, handedness);
+            }
         }
         vertices.push_back(vertex);
     }

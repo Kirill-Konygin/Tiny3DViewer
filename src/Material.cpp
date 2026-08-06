@@ -125,6 +125,7 @@ void Material::Bind(const Shader& shader) const
 {
     shader.SetVec4("baseColor", mBaseColor);
     shader.SetInt("hasDiffuseTexture", mDiffuseTexture ? 1 : 0);
+    shader.SetInt("hasNormalTexture", mNormalTexture ? 1 : 0);
 
     bindTexture(shader, mDiffuseTexture, "diffuseTexture", 0);
     bindTexture(shader, mSpecularTexture, "specularTexture", 1);
