@@ -1,22 +1,21 @@
-#define STB_IMAGE_IMPLEMENTATION
 #include "Material.h"
 #include "Shader.h"
-
-#include <stb_image.h>
 
 #include <algorithm>
 #include <cctype>
 #include <iostream>
+#include <memory>
+#include <optional>
 #include <string>
+#include <utility>
 
 enum class TextureType {
     Diffuse,
     Specular,
-    Normal,
-    Unknown
+    Normal
 };
 
-TextureType getTextureType(const std::filesystem::path& texturePath)
+std::optional<TextureType> getTextureType(const std::filesystem::path& texturePath)
 {
     std::string suffix = texturePath.stem().string();
     const std::size_t separator = suffix.find_last_of('_');
@@ -44,69 +43,31 @@ TextureType getTextureType(const std::filesystem::path& texturePath)
         return TextureType::Normal;
     }
 
-    return TextureType::Unknown;
+    return std::nullopt;
 }
 
-GLenum formatForChannels(int channels)
+void loadIfMissing(std::shared_ptr<Texture>& texture, const std::filesystem::path& path)
 {
-    switch (channels)
+    if (texture)
+        return;
+
+    std::optional<Texture> loadedTexture = Texture::Load(path);
+    if (loadedTexture)
+        texture = std::make_shared<Texture>(std::move(*loadedTexture));
+}
+
+void bindTexture(const Shader& shader, const std::shared_ptr<Texture>& texture, const char* uniformName, GLuint unit)
+{
+    shader.SetInt(uniformName, static_cast<int>(unit));
+    if (texture)
     {
-    case 1:
-        return GL_RED;
-    case 2:
-        return GL_RG;
-    case 3:
-        return GL_RGB;
-    case 4:
-        return GL_RGBA;
-    default:
-        return 0;
+        texture->Bind(unit);
+    }
+    else
+    {
+        Texture::Unbind(unit);
     }
 }
-
-GLuint loadTexture(const std::filesystem::path& path)
-{
-    int width = 0;
-    int height = 0;
-    int channels = 0;
-    unsigned char* data = stbi_load(path.string().c_str(), &width, &height, &channels, 0);
-    if (data == nullptr)
-    {
-        std::cerr << "Failed to load texture '" << path.string() << "': "
-                  << stbi_failure_reason() << '\n';
-        return 0;
-    }
-
-    const GLenum format = formatForChannels(channels);
-    if (format == 0)
-    {
-        std::cerr << "Unsupported number of channels in texture '" << path.string() << "'\n";
-        stbi_image_free(data);
-        return 0;
-    }
-    GLuint textureId = 0;
-    glGenTextures(1, &textureId);
-    glBindTexture(GL_TEXTURE_2D, textureId);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-    glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, data);
-    glGenerateMipmap(GL_TEXTURE_2D);
-
-    stbi_image_free(data);
-    return textureId;
-}
-
-void bindTexture(const Shader& shader, const char* uniformName, GLint unit, GLuint textureId)
-{
-    shader.SetInt(uniformName, unit);
-    // OpenGL texture unit constants are contiguous, so GL_TEXTURE0 + unit is safe.
-    glActiveTexture(GL_TEXTURE0 + unit);
-    glBindTexture(GL_TEXTURE_2D, textureId);
-}
-
 
 Material::Material(const std::filesystem::path& pathToTextures)
 {
@@ -118,8 +79,6 @@ Material::Material(const std::filesystem::path& pathToTextures)
         return;
     }
 
-    stbi_set_flip_vertically_on_load(true);
-
     for (const auto& entry : std::filesystem::directory_iterator(pathToTextures, error))
     {
         if (error)
@@ -129,43 +88,45 @@ Material::Material(const std::filesystem::path& pathToTextures)
             break;
         }
 
-        switch (getTextureType(entry.path()))
+        const std::optional<TextureType> type = getTextureType(entry.path());
+        if (!type)
+        {
+            continue;
+        }
+
+        switch (*type)
         {
         case TextureType::Diffuse:
-            if (diffuseTextureId == 0)
-            {
-                diffuseTextureId = loadTexture(entry.path()); 
-            }
+            loadIfMissing(mDiffuseTexture, entry.path());
             break;
         case TextureType::Specular:
-            if (specularTextureId == 0)
-            {
-                specularTextureId = loadTexture(entry.path());
-            }
+            loadIfMissing(mSpecularTexture, entry.path());
             break;
         case TextureType::Normal:
-            if (normalTextureId == 0)
-            {
-                normalTextureId = loadTexture(entry.path());
-            }
+            loadIfMissing(mNormalTexture, entry.path());
             break;
         }
     }
 }
 
-Material::~Material()
+Material::Material(
+    std::shared_ptr<Texture> diffuseTexture,
+    std::shared_ptr<Texture> specularTexture,
+    std::shared_ptr<Texture> normalTexture,
+    const glm::vec4& baseColor) noexcept
+    : mDiffuseTexture(std::move(diffuseTexture)),
+      mSpecularTexture(std::move(specularTexture)),
+      mNormalTexture(std::move(normalTexture)),
+      mBaseColor(baseColor)
 {
-    const GLuint textureIds[] = {
-        diffuseTextureId,
-        specularTextureId,
-        normalTextureId
-    };
-    glDeleteTextures(3, textureIds);
 }
 
 void Material::Bind(const Shader& shader) const
 {
-    bindTexture(shader, "diffuseTexture", 0, diffuseTextureId);
-    bindTexture(shader, "specularTexture", 1, specularTextureId);
-    bindTexture(shader, "normalTexture", 2, normalTextureId);
+    shader.SetVec4("baseColor", mBaseColor);
+    shader.SetInt("hasDiffuseTexture", mDiffuseTexture ? 1 : 0);
+
+    bindTexture(shader, mDiffuseTexture, "diffuseTexture", 0);
+    bindTexture(shader, mSpecularTexture, "specularTexture", 1);
+    bindTexture(shader, mNormalTexture, "normalTexture", 2);
 }

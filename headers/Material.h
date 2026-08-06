@@ -1,19 +1,28 @@
 #pragma once
 
-#include <glad/glad.h>
+#include "Texture.h"
+
+#include <glm/glm.hpp>
 
 #include <filesystem>
+#include <memory>
 
 class Shader;
 
 class Material {
 public:
     explicit Material(const std::filesystem::path& pathToTextures);
-    ~Material();
+    Material(
+        std::shared_ptr<Texture> diffuseTexture,
+        std::shared_ptr<Texture> specularTexture,
+        std::shared_ptr<Texture> normalTexture,
+        const glm::vec4& baseColor) noexcept;
+
     void Bind(const Shader& shader) const;
 
 private:
-    GLuint diffuseTextureId = 0;
-    GLuint specularTextureId = 0;
-    GLuint normalTextureId = 0;
+    std::shared_ptr<Texture> mDiffuseTexture;
+    std::shared_ptr<Texture> mSpecularTexture;
+    std::shared_ptr<Texture> mNormalTexture;
+    glm::vec4 mBaseColor{1.0f};
 };

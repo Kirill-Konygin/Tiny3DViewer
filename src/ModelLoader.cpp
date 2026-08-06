@@ -1,14 +1,41 @@
 #include "ModelLoader.h"
 
 #include <assimp/Importer.hpp>
+#include <assimp/material.h>
 #include <assimp/postprocess.h>
 #include <assimp/scene.h>
 
+#include <cassert>
 #include <cstdint>
 #include <iostream>
 #include <memory>
 #include <utility>
 #include <vector>
+
+std::shared_ptr<Texture> getEmbeddedMaterialTexture(const aiMaterial* material, aiTextureType textureType, const aiScene* scene,const std::vector<std::shared_ptr<Texture>>& textures)
+{
+    aiString texturePath;
+    if (material->GetTexture(textureType, 0, &texturePath) != AI_SUCCESS)
+        return {};
+
+    const auto [embeddedTexture, textureIndex] = scene->GetEmbeddedTextureAndIndex(texturePath.C_Str());
+    if (embeddedTexture == nullptr)
+    {
+        std::cerr << "Material texture reference could not be matched to an embedded texture: '"
+                  << texturePath.C_Str() << "' (scene contains "
+                  << scene->mNumTextures << " embedded textures)\n";
+        return {};
+    }
+
+    if (textureIndex < 0 || static_cast<std::size_t>(textureIndex) >= textures.size())
+    {
+        std::cerr << "Invalid embedded texture index for material: '"
+                  << texturePath.C_Str() << "'\n";
+        return {};
+    }
+
+    return textures[static_cast<std::size_t>(textureIndex)];
+}
 
 glm::mat4 toGlmMatrix(const aiMatrix4x4& matrix)
 {
@@ -31,18 +58,28 @@ std::optional<Model> ModelLoader::LoadModel(const std::filesystem::path& pathToM
 
     std::vector<std::shared_ptr<RenderMesh>> meshes;
     meshes.reserve(scene->mNumMeshes);
+    std::vector<std::shared_ptr<Texture>> textures;
+    textures.reserve(scene->mNumTextures);
+    std::vector<std::shared_ptr<Material>> materials;
+    materials.reserve(scene->mNumMaterials);
     for (unsigned int i = 0; i < scene->mNumMeshes; ++i)
         meshes.push_back(processMesh(scene->mMeshes[i]));
+    for (unsigned int i = 0; i < scene->mNumTextures; ++i)
+        textures.push_back(processTexture(scene->mTextures[i]));
+    for (unsigned int i = 0; i < scene->mNumMaterials; ++i)
+        materials.push_back(processMaterial(scene->mMaterials[i], scene, textures));
 
     std::vector<RenderObject> renderObjects;
-    processNode(scene->mRootNode, glm::mat4{1.0f}, meshes, renderObjects);
+    processNode(scene->mRootNode, scene, glm::mat4{1.0f}, meshes, materials, renderObjects);
 
     return Model(std::move(renderObjects));
 }
 
-void ModelLoader::processNode(  const aiNode* node, 
-                                const glm::mat4& parentTransform, 
+void ModelLoader::processNode(  const aiNode* node,
+                                const aiScene* scene,
+                                const glm::mat4& parentTransform,
                                 const std::vector<std::shared_ptr<RenderMesh>>& meshes,
+                                const std::vector<std::shared_ptr<Material>>& materials,
                                 std::vector<RenderObject>& renderObjects                ) const
 {
     const glm::mat4 nodeTransform = parentTransform * toGlmMatrix(node->mTransformation);
@@ -50,18 +87,21 @@ void ModelLoader::processNode(  const aiNode* node,
     for (unsigned int i = 0; i < node->mNumMeshes; ++i)
     {
         const unsigned int meshIndex = node->mMeshes[i];
-        if (meshIndex >= meshes.size())
-            continue;
+        assert(meshIndex < meshes.size());
+        assert(meshIndex < scene->mNumMeshes);
+
+        const unsigned int materialIndex = scene->mMeshes[meshIndex]->mMaterialIndex;
+        assert(materialIndex < materials.size());
 
         renderObjects.push_back(RenderObject{
             meshes[meshIndex],
-            {},
+            materials[materialIndex],
             nodeTransform
         });
     }
 
     for (unsigned int i = 0; i < node->mNumChildren; ++i)
-        processNode(node->mChildren[i], nodeTransform, meshes, renderObjects);
+        processNode(node->mChildren[i], scene, nodeTransform, meshes, materials, renderObjects);
 }
 
 std::shared_ptr<RenderMesh> ModelLoader::processMesh(const aiMesh* mesh) const
@@ -96,6 +136,58 @@ std::shared_ptr<RenderMesh> ModelLoader::processMesh(const aiMesh* mesh) const
         for (unsigned int j = 0; j < face.mNumIndices; ++j)
             indices.push_back(static_cast<std::uint32_t>(face.mIndices[j]));
     }
-
     return std::make_shared<RenderMesh>(vertices, indices);
+}
+
+std::shared_ptr<Texture> ModelLoader::processTexture(const aiTexture* texture) const
+{
+    if (texture == nullptr || texture->pcData == nullptr || texture->mWidth == 0)
+        return {};
+
+    std::optional<Texture> loadedTexture;
+    if (texture->mHeight == 0)
+    {
+        loadedTexture = Texture::LoadEncoded(
+            reinterpret_cast<const unsigned char*>(texture->pcData),
+            texture->mWidth);
+    }
+    else
+    {
+        loadedTexture = Texture::LoadRawBGRA(
+            reinterpret_cast<const unsigned char*>(texture->pcData),
+            texture->mWidth,
+            texture->mHeight);
+    }
+
+    if (!loadedTexture)
+        return {};
+
+    return std::make_shared<Texture>(std::move(*loadedTexture));
+}
+
+std::shared_ptr<Material> ModelLoader::processMaterial(const aiMaterial* material, const aiScene* scene, const std::vector<std::shared_ptr<Texture>>& textures) const
+{
+    if (material == nullptr || scene == nullptr)
+        return {};
+
+    std::shared_ptr<Texture> diffuseTexture = getEmbeddedMaterialTexture( material, aiTextureType_BASE_COLOR, scene, textures);
+    if (!diffuseTexture)
+    {
+        diffuseTexture = getEmbeddedMaterialTexture(material, aiTextureType_DIFFUSE, scene, textures);
+    }
+    std::shared_ptr<Texture> specularTexture = getEmbeddedMaterialTexture(material, aiTextureType_SPECULAR, scene, textures);
+    std::shared_ptr<Texture> normalTexture = getEmbeddedMaterialTexture(material, aiTextureType_NORMALS, scene, textures);
+
+    aiColor4D assimpBaseColor{1.0f, 1.0f, 1.0f, 1.0f};
+    if (material->Get(AI_MATKEY_BASE_COLOR, assimpBaseColor) != AI_SUCCESS)
+        material->Get(AI_MATKEY_COLOR_DIFFUSE, assimpBaseColor);
+
+    const glm::vec4 baseColor{
+        assimpBaseColor.r,
+        assimpBaseColor.g,
+        assimpBaseColor.b,
+        assimpBaseColor.a
+    };
+
+    return std::make_shared<Material>(std::move(diffuseTexture), std::move(specularTexture), std::move(normalTexture), baseColor);
 }

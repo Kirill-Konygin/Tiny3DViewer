@@ -54,6 +54,7 @@ add_executable(Tiny3DViewer
     src/ModelLoader.cpp
     src/OrbitalTransform.cpp
     src/Shader.cpp
+    src/Texture.cpp
     src/Window.cpp
     headers/Camera.h
     headers/Material.h
@@ -63,6 +64,7 @@ add_executable(Tiny3DViewer
     headers/OrbitalTransform.h
     headers/RenderObject.h
     headers/Shader.h
+    headers/Texture.h
     headers/Window.h
 )
 
