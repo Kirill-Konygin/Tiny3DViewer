@@ -43,6 +43,7 @@ Window::Window(const char* title, int width, int height)
 
     glfwSetWindowUserPointer(handle_, this);
     glfwSetFramebufferSizeCallback(handle_, framebufferSizeCallback);
+    glfwSetKeyCallback(handle_, keyCallback);
     glfwSetCursorPosCallback(handle_, mouseCallback);
     glfwSetMouseButtonCallback(handle_, mouseButtonCallback);
     glfwSetScrollCallback(handle_, scrollCallback);
@@ -81,6 +82,13 @@ unsigned int Window::addFramebufferSizeCallback(framebufferSizeCallback_t callba
     return callbackId;
 }
 
+unsigned int Window::addKeyCallback(keyCallback_t callback)
+{
+    const unsigned int callbackId = getNextCallbackId();
+    keyCallbacks.emplace(callbackId, std::move(callback));
+    return callbackId;
+}
+
 unsigned int Window::addMouseCallback(mouseCallback_t callback)
 {
     const unsigned int callbackId = getNextCallbackId();
@@ -104,7 +112,7 @@ unsigned int Window::addScrollCallback(scrollCallback_t callback)
 
 bool Window::removeCallback(unsigned int id)
 {
-    return framebufferSizeCallbacks.erase(id) || mouseCallbacks.erase(id) || mouseButtonCallbacks.erase(id) || scrollCallbacks.erase(id);
+    return framebufferSizeCallbacks.erase(id) || keyCallbacks.erase(id) || mouseCallbacks.erase(id) || mouseButtonCallbacks.erase(id) || scrollCallbacks.erase(id);
 }
 
 void Window::framebufferSizeCallback(GLFWwindow* window, int width, int height)
@@ -112,6 +120,14 @@ void Window::framebufferSizeCallback(GLFWwindow* window, int width, int height)
     if(Window* ptr = static_cast<Window*>(glfwGetWindowUserPointer(window)))
         for (const auto& [_,callback] : ptr->framebufferSizeCallbacks) {
             callback(width, height);
+        }
+}
+
+void Window::keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods)
+{
+    if (Window* ptr = static_cast<Window*>(glfwGetWindowUserPointer(window)))
+        for (const auto& [_, callback] : ptr->keyCallbacks) {
+            callback(key, scancode, action, mods);
         }
 }
 
@@ -147,6 +163,7 @@ unsigned int Window::getNextCallbackId()
     }
     while (
           framebufferSizeCallbacks.contains(lastCallbackId)
+      ||  keyCallbacks.contains(lastCallbackId)
       ||  mouseCallbacks.contains(lastCallbackId)
       ||  mouseButtonCallbacks.contains(lastCallbackId)
       ||  scrollCallbacks.contains(lastCallbackId)

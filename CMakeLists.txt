@@ -34,6 +34,15 @@ set(ASSIMP_WARNINGS_AS_ERRORS OFF CACHE BOOL "" FORCE)
 
 add_subdirectory(libs/assimp)
 
+# Native File Dialog Extended is bundled with the project. Build only the
+# library; its tests and install rules are not needed by the viewer.
+set(NFD_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(NFD_BUILD_SDL2_TESTS OFF CACHE BOOL "" FORCE)
+set(NFD_BUILD_GLFW3_TESTS OFF CACHE BOOL "" FORCE)
+set(NFD_INSTALL OFF CACHE BOOL "" FORCE)
+
+add_subdirectory(libs/nativefiledialog-extended)
+
 add_library(glad STATIC
     libs/glad/src/glad.c
 )
@@ -80,6 +89,7 @@ target_link_libraries(Tiny3DViewer
         glfw
         glm::glm
         assimp::assimp
+        nfd::nfd
         OpenGL::GL
 )
 
