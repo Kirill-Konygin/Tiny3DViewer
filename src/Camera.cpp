@@ -46,7 +46,7 @@ void Camera::SetPosition(const glm::vec3& position)
 
 glm::mat4 Camera::GetProjectionMatrix() const
 {
-    return glm::perspective(glm::radians(mFOV), mAspectRatio, 0.1f, 100.0f);
+    return glm::perspective(glm::radians(mFOV), mAspectRatio, 0.1f, 2000.0f);
 }
 
 glm::mat4 Camera::GetViewProjectionMatrix() const
