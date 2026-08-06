@@ -27,6 +27,12 @@ Shader::Shader(const std::string& pathToVertexShader, const std::string& pathToF
     glDeleteShader(fragment);
 }
 
+Shader::~Shader()
+{
+	if (id != 0)
+		glDeleteProgram(id);
+}
+
 void Shader::Bind() const
 {
 	glUseProgram(id);

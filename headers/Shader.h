@@ -8,6 +8,13 @@ class Shader {
 
 public:
 	Shader(const std::string& pathToVertexShader,const std::string& pathToFragmentShader);
+
+	Shader(const Shader&) = delete;
+	Shader& operator=(const Shader&) = delete;
+	Shader(Shader&&) = delete;
+	Shader& operator=(Shader&&) = delete;
+	~Shader();
+
 	void Bind()const;
 	void SetInt(const std::string& name, int value) const;
 	void SetVec4(const std::string& name, const glm::vec4& value) const;
@@ -30,5 +37,5 @@ private:
 		return shaderId;
 	}
 
-	unsigned int id;
+	GLuint id;
 };

@@ -16,7 +16,13 @@ class RenderMesh {
 public:
     RenderMesh(const std::vector<Vertex>& vertices,
          const std::vector<std::uint32_t>& indices);
+
+    RenderMesh(const RenderMesh&) = delete;
+    RenderMesh& operator=(const RenderMesh&) = delete;
+    RenderMesh(RenderMesh&&) = delete;
+    RenderMesh& operator=(RenderMesh&&) = delete;
     ~RenderMesh();
+
     void Draw() const;
 private:
 

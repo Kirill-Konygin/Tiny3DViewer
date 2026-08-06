@@ -8,10 +8,12 @@ class Window
 {
 public:
     Window(const char* title, int width = 1920, int height = 1080);
-    ~Window();
 
     Window(const Window&) = delete;
     Window& operator=(const Window&) = delete;
+    Window(Window&&) = delete;
+    Window& operator=(Window&&) = delete;
+    ~Window();
 
     bool shouldClose();
     void update();

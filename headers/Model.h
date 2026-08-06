@@ -13,6 +13,7 @@ public:
 	Model& operator=(const Model&) = delete;
 	Model(Model&&) noexcept = default;
 	Model& operator=(Model&&) noexcept = default;
+	~Model() = default;
 
 	void Draw(const Shader& shader, const glm::mat4& viewProjection) const;
 
