@@ -24,7 +24,7 @@ void openFileDialog(bool& openModelRequested, ModelLoader& loader, std::optional
 int main()
 {
     Window window("Tiny3DViewer");
-    Shader shader("../shaders/VertexShader", "../shaders/FragmentShader");
+    Shader shader;
     Camera camera;
     ModelLoader loader;
     std::optional<Model> model;

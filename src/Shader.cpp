@@ -1,21 +1,12 @@
 #include "Shader.h"
 #include <glad/glad.h>
 #include <glm/gtc/type_ptr.hpp>
-#include <fstream>
 #include <iostream>
-#include <sstream>
-#include <stdexcept>
 
-Shader::Shader(const std::string& pathToVertexShader, const std::string& pathToFragmentShader)
+Shader::Shader()
 {
-    const std::string vertexCode = ProcessPathToShader(pathToVertexShader);
-    const std::string fragmentCode = ProcessPathToShader(pathToFragmentShader);
-
-
-	GLuint vertex   = CompileShader<GL_VERTEX_SHADER>(vertexCode);
-	CheckCompileErrors(vertex);
-	GLuint fragment = CompileShader<GL_FRAGMENT_SHADER>(fragmentCode);
-	CheckCompileErrors(fragment);
+	GLuint vertex   = CompileShader<GL_VERTEX_SHADER>(vertexShaderSource);
+	GLuint fragment = CompileShader<GL_FRAGMENT_SHADER>(fragmentShaderSource);
  
     id = glCreateProgram();
     glAttachShader(id, vertex);
@@ -77,22 +68,4 @@ void Shader::CheckLinkErrors(GLuint program) const
 		glGetProgramInfoLog(program, sizeof(infoLog), nullptr, infoLog);
 		std::cerr << "ERROR::PROGRAM_LINKING_ERROR" << '\n' << infoLog << std::endl;
 	}
-}
-
-std::string Shader::ProcessPathToShader(const std::string& pathToShader)
-{
-	std::ifstream shaderFile(pathToShader);
-	if (!shaderFile.is_open())
-	{
-		throw std::runtime_error("Failed to open shader file: " + pathToShader);
-	}
-
-	std::ostringstream shaderCode;
-	shaderCode << shaderFile.rdbuf();
-
-	if (shaderFile.bad())
-	{
-		throw std::runtime_error("Failed to read shader file: " + pathToShader);
-	}
-	return shaderCode.str();
 }
