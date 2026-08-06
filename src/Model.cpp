@@ -22,7 +22,9 @@ void Model::Draw(const Shader& shader, const glm::mat4& viewProjection) const
         if (renderObject.material)
             renderObject.material->Bind(shader);
 
-        shader.SetMat4("transformMatrix", viewProjection * modelTransform * renderObject.localToModel);
+        const glm::mat4 objectTransform = modelTransform * renderObject.localToModel;
+        shader.SetMat4("transformMatrix", viewProjection * objectTransform);
+        shader.SetMat4("modelMatrix", objectTransform);
         renderObject.mesh->Draw();
     }
 }

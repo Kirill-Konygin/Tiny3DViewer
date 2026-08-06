@@ -2,6 +2,7 @@
 out vec4 FragColor;
 
 in vec2 TexCoord;
+in vec3 Normal;
 
 uniform sampler2D diffuseTexture;
 uniform vec4 baseColor;
@@ -10,7 +11,14 @@ uniform bool hasDiffuseTexture;
 
 void main()
 {
-	FragColor = baseColor;
+	vec4 surfaceColor = baseColor;
 	if (hasDiffuseTexture)
-		FragColor *= texture(diffuseTexture, TexCoord);
+		surfaceColor *= texture(diffuseTexture, TexCoord);
+
+	const vec3 lightDirection = vec3(0.4364, 0.8729, 0.2182);
+	const float ambientStrength = 0.2;
+	float diffuseStrength = max(dot(normalize(Normal), lightDirection), 0.0);
+	float lighting = ambientStrength + (1.0 - ambientStrength) * diffuseStrength;
+
+	FragColor = vec4(surfaceColor.rgb * lighting, surfaceColor.a);
 }

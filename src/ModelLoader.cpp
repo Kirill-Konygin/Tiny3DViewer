@@ -50,7 +50,9 @@ glm::mat4 toGlmMatrix(const aiMatrix4x4& matrix)
 std::optional<Model> ModelLoader::LoadModel(const std::filesystem::path& pathToModel)
 {
     Assimp::Importer import;
-    const aiScene* scene = import.ReadFile(pathToModel.string(), aiProcess_Triangulate | aiProcess_FlipUVs);
+    const aiScene* scene = import.ReadFile(
+        pathToModel.string(),
+        aiProcess_Triangulate | aiProcess_FlipUVs | aiProcess_GenSmoothNormals);
 
     if (!scene || (scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE) || !scene->mRootNode)
         return std::nullopt;
@@ -120,6 +122,14 @@ std::shared_ptr<RenderMesh> ModelLoader::processMesh(const aiMesh* mesh) const
         vector.y = mesh->mVertices[i].y;
         vector.z = mesh->mVertices[i].z;
         vertex.position = vector;
+
+        vertex.normal = glm::vec3(0.0f, 1.0f, 0.0f);
+        if (mesh->HasNormals())
+        {
+            vertex.normal.x = mesh->mNormals[i].x;
+            vertex.normal.y = mesh->mNormals[i].y;
+            vertex.normal.z = mesh->mNormals[i].z;
+        }
 
         vertex.texCoord = glm::vec2(0.0f, 0.0f);
         if (mesh->mTextureCoords[0])
