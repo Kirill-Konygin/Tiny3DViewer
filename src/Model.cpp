@@ -5,8 +5,8 @@
 
 #include <utility>
 
-Model::Model(std::vector<RenderObject>&& renderObjects) noexcept
-    : renderObjects(std::move(renderObjects))
+Model::Model(std::vector<RenderObject>&& renderObjects, AABB&& aabb) noexcept
+    : renderObjects(std::move(renderObjects)), localBounds(aabb)
 {
 }
 
@@ -42,6 +42,11 @@ void Model::setRotation(const glm::vec3& newRotation)
 void Model::setScale(const glm::vec3& newScale)
 {
     scale = newScale;
+}
+
+const AABB& Model::getLocalBounds() const
+{
+    return localBounds;
 }
 
 glm::vec3 Model::getPosition() const

@@ -11,6 +11,7 @@
 #include <memory>
 #include <utility>
 #include <vector>
+#include <array>
 
 std::shared_ptr<Texture> getEmbeddedMaterialTexture(const aiMaterial* material, aiTextureType textureType, const aiScene* scene,const std::vector<std::shared_ptr<Texture>>& textures)
 {
@@ -47,10 +48,51 @@ glm::mat4 toGlmMatrix(const aiMatrix4x4& matrix)
     };
 }
 
+AABB ModelLoader::transformAABBToModelSpace(const aiAABB& aabb, const glm::mat4& meshToModel)
+{
+    const auto& min = aabb.mMin;
+    const auto& max = aabb.mMax;
+
+    const std::array<glm::vec3, 8> corners{
+        glm::vec3{min.x, min.y, min.z},
+        glm::vec3{max.x, min.y, min.z},
+        glm::vec3{min.x, max.y, min.z},
+        glm::vec3{max.x, max.y, min.z},
+        glm::vec3{min.x, min.y, max.z},
+        glm::vec3{max.x, min.y, max.z},
+        glm::vec3{min.x, max.y, max.z},
+        glm::vec3{max.x, max.y, max.z}
+    };
+
+    const glm::vec3 firstCorner{
+        meshToModel* glm::vec4{corners[0], 1.0f}
+    };
+
+    AABB result{ firstCorner, firstCorner };
+
+    for (std::size_t i = 1; i < corners.size(); ++i)
+    {
+        const glm::vec3 transformedCorner{
+            meshToModel* glm::vec4{corners[i], 1.0f}
+        };
+
+        result.min = glm::min(result.min, transformedCorner);
+        result.max = glm::max(result.max, transformedCorner);
+    }
+
+    return result;
+}
+
 std::optional<Model> ModelLoader::LoadModel(const std::filesystem::path& pathToModel)
 {
     Assimp::Importer import;
-    const aiScene* scene = import.ReadFile(pathToModel.string(), aiProcess_Triangulate | aiProcess_FlipUVs | aiProcess_GenSmoothNormals | aiProcess_CalcTangentSpace);
+    constexpr unsigned int importFlags =
+        static_cast<unsigned int>(aiProcess_Triangulate)
+        | static_cast<unsigned int>(aiProcess_FlipUVs)
+        | static_cast<unsigned int>(aiProcess_GenSmoothNormals)
+        | static_cast<unsigned int>(aiProcess_CalcTangentSpace)
+        | static_cast<unsigned int>(aiProcess_GenBoundingBoxes);
+    const aiScene* scene = import.ReadFile(pathToModel.string(), importFlags);
 
     if (!scene || (scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE) || !scene->mRootNode)
         return std::nullopt;
@@ -70,9 +112,13 @@ std::optional<Model> ModelLoader::LoadModel(const std::filesystem::path& pathToM
         materials.push_back(processMaterial(scene->mMaterials[i], scene, textures));
 
     std::vector<RenderObject> renderObjects;
-    processNode(scene->mRootNode, scene, glm::mat4{1.0f}, meshes, materials, renderObjects);
+    AABB modelBound;
+    processNode(scene->mRootNode, scene, glm::mat4{1.0f}, meshes, materials, modelBound, renderObjects);
 
-    return Model(std::move(renderObjects));
+    if(renderObjects.empty())
+        return std::nullopt;
+
+    return Model(std::move(renderObjects), std::move(modelBound));
 }
 
 void ModelLoader::processNode(  const aiNode* node,
@@ -80,6 +126,7 @@ void ModelLoader::processNode(  const aiNode* node,
                                 const glm::mat4& parentTransform,
                                 const std::vector<std::shared_ptr<RenderMesh>>& meshes,
                                 const std::vector<std::shared_ptr<Material>>& materials,
+                                AABB& modelBound,
                                 std::vector<RenderObject>& renderObjects                ) const
 {
     const glm::mat4 nodeTransform = parentTransform * toGlmMatrix(node->mTransformation);
@@ -93,6 +140,9 @@ void ModelLoader::processNode(  const aiNode* node,
         const unsigned int materialIndex = scene->mMeshes[meshIndex]->mMaterialIndex;
         assert(materialIndex < materials.size());
 
+        auto aabb = transformAABBToModelSpace(scene->mMeshes[meshIndex]->mAABB, nodeTransform);
+        modelBound.max = glm::max(modelBound.max, aabb.max);
+        modelBound.min = glm::min(modelBound.min, aabb.min);
         renderObjects.push_back(RenderObject{
             meshes[meshIndex],
             materials[materialIndex],
@@ -101,7 +151,7 @@ void ModelLoader::processNode(  const aiNode* node,
     }
 
     for (unsigned int i = 0; i < node->mNumChildren; ++i)
-        processNode(node->mChildren[i], scene, nodeTransform, meshes, materials, renderObjects);
+        processNode(node->mChildren[i], scene, nodeTransform, meshes, materials, modelBound, renderObjects);
 }
 
 std::shared_ptr<RenderMesh> ModelLoader::processMesh(const aiMesh* mesh) const
