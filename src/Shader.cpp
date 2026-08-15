@@ -3,10 +3,10 @@
 #include <glm/gtc/type_ptr.hpp>
 #include <iostream>
 
-Shader::Shader()
+Shader::Shader(const char* vertexSource, const char* fragmentSource)
 {
-	GLuint vertex   = CompileShader<GL_VERTEX_SHADER>(vertexShaderSource);
-	GLuint fragment = CompileShader<GL_FRAGMENT_SHADER>(fragmentShaderSource);
+	GLuint vertex   = CompileShader<GL_VERTEX_SHADER>(vertexSource);
+	GLuint fragment = CompileShader<GL_FRAGMENT_SHADER>(fragmentSource);
  
     id = glCreateProgram();
     glAttachShader(id, vertex);

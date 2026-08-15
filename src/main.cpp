@@ -3,7 +3,7 @@
 #include "Mesh.h"
 #include "Material.h"
 #include "OrbitalTransform.h"
-#include "Shader.h"
+#include "ShaderFactory.h"
 
 #include <GLFW/glfw3.h>
 #include <glm/gtc/matrix_transform.hpp>
@@ -24,7 +24,7 @@ void openFileDialog(bool& openModelRequested, ModelLoader& loader, std::optional
 int main()
 {
     Window window("Tiny3DViewer");
-    Shader shader;
+    Shader shader = ShaderFactory::MakeModelShader();
     Camera camera;
     ModelLoader loader;
     std::optional<Model> model;
