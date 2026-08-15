@@ -18,6 +18,9 @@ public:
     bool shouldClose();
     void update();
     void clear();
+    void getSize(int& width, int& height) const;
+    void getFramebufferSize(int& width, int& height) const;
+    void getCursorPosition(double& x, double& y) const;
 
     using framebufferSizeCallback_t = std::function<void(int width, int height)>;
     using keyCallback_t              = std::function<void(int key, int scancode, int action, int mods)>;
@@ -42,7 +45,7 @@ private:
     unsigned int getNextCallbackId();
     void processInput() const;
 
-    GLFWwindow* handle_ = nullptr;
+    GLFWwindow* glfwWindow = nullptr;
     unsigned int lastCallbackId = 0;
     std::unordered_map<unsigned int, framebufferSizeCallback_t>framebufferSizeCallbacks;
     std::unordered_map<unsigned int, keyCallback_t>keyCallbacks;

@@ -16,20 +16,20 @@ Window::Window(const char* title, int width, int height)
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
-    handle_ = glfwCreateWindow(width, height, title, nullptr, nullptr);
-    if (handle_ == nullptr)
+    glfwWindow = glfwCreateWindow(width, height, title, nullptr, nullptr);
+    if (glfwWindow == nullptr)
     {
         glfwTerminate();
         std::cerr << "Failed to create GLFW window" << std::endl;
         exit(1);
     }
 
-    glfwMakeContextCurrent(handle_);
+    glfwMakeContextCurrent(glfwWindow);
 
     if (!gladLoadGLLoader(reinterpret_cast<GLADloadproc>(glfwGetProcAddress)))
     {
-        glfwDestroyWindow(handle_);
-        handle_ = nullptr;
+        glfwDestroyWindow(glfwWindow);
+        glfwWindow = nullptr;
         glfwTerminate();
         std::cerr << "Failed to initialize GLAD" << std::endl;
         exit(1);
@@ -41,30 +41,30 @@ Window::Window(const char* title, int width, int height)
         glViewport(0, 0, width, height);
     });
 
-    glfwSetWindowUserPointer(handle_, this);
-    glfwSetFramebufferSizeCallback(handle_, framebufferSizeCallback);
-    glfwSetKeyCallback(handle_, keyCallback);
-    glfwSetCursorPosCallback(handle_, mouseCallback);
-    glfwSetMouseButtonCallback(handle_, mouseButtonCallback);
-    glfwSetScrollCallback(handle_, scrollCallback);
+    glfwSetWindowUserPointer(glfwWindow, this);
+    glfwSetFramebufferSizeCallback(glfwWindow, framebufferSizeCallback);
+    glfwSetKeyCallback(glfwWindow, keyCallback);
+    glfwSetCursorPosCallback(glfwWindow, mouseCallback);
+    glfwSetMouseButtonCallback(glfwWindow, mouseButtonCallback);
+    glfwSetScrollCallback(glfwWindow, scrollCallback);
 }
 
 Window::~Window()
 {
-    if (handle_ != nullptr)
-        glfwDestroyWindow(handle_);
+    if (glfwWindow != nullptr)
+        glfwDestroyWindow(glfwWindow);
 
     glfwTerminate();
 }
 
 bool Window::shouldClose()
 {
-    return glfwWindowShouldClose(handle_);
+    return glfwWindowShouldClose(glfwWindow);
 }
 
 void Window::update()
 {
-    glfwSwapBuffers(handle_);
+    glfwSwapBuffers(glfwWindow);
     glfwPollEvents();
     processInput();
 }
@@ -73,6 +73,21 @@ void Window::clear()
 {
     glClearColor(0.5f, 0.5f, 0.5f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+}
+
+void Window::getSize(int& width, int& height) const
+{
+    glfwGetWindowSize(glfwWindow, &width, &height);
+}
+
+void Window::getFramebufferSize(int& width, int& height) const
+{
+    glfwGetFramebufferSize(glfwWindow, &width, &height);
+}
+
+void Window::getCursorPosition(double& x, double& y) const
+{
+    glfwGetCursorPos(glfwWindow, &x, &y);
 }
 
 unsigned int Window::addFramebufferSizeCallback(framebufferSizeCallback_t callback)
@@ -174,6 +189,6 @@ unsigned int Window::getNextCallbackId()
 
 void Window::processInput() const
 {
-    if (glfwGetKey(handle_, GLFW_KEY_ESCAPE) == GLFW_PRESS)
-        glfwSetWindowShouldClose(handle_, GLFW_TRUE);
+    if (glfwGetKey(glfwWindow, GLFW_KEY_ESCAPE) == GLFW_PRESS)
+        glfwSetWindowShouldClose(glfwWindow, GLFW_TRUE);
 }

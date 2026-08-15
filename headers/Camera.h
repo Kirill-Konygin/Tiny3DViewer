@@ -14,6 +14,7 @@ public:
 	void SetFOV(float FOV);
 	void SetDirection(const glm::vec3& direction);
 	void SetPosition(const glm::vec3& position);
+	float GetFOV() const;
 	glm::mat4 GetProjectionMatrix() const;
 	glm::mat4 GetViewProjectionMatrix() const;
 
