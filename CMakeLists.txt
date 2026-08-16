@@ -69,6 +69,7 @@ add_executable(Tiny3DViewer
     src/ShaderFactory.cpp
     src/Texture.cpp
     src/TranslateGizmo.cpp
+    src/ViewerApplication.cpp
     src/Window.cpp
     headers/AxisDrag.h
     headers/Camera.h
@@ -84,6 +85,7 @@ add_executable(Tiny3DViewer
     headers/ShaderFactory.h
     headers/Texture.h
     headers/TranslateGizmo.h
+    headers/ViewerApplication.h
     headers/Window.h
 )
 
