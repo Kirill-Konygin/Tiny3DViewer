@@ -5,6 +5,7 @@
 #include <cmath>
 #include <limits>
 #include <optional>
+#include <vector>
 
 glm::vec3 perspectiveDivide(const glm::vec4& point)
 {
@@ -37,12 +38,11 @@ std::optional<float> IntersectRayAABB(const glm::vec3& origin, const glm::vec3& 
         if (std::abs(direction[axis]) < threshold)
         {
             // Ray parallel to this slab.
-            if (origin[axis] < aabb.min[axis] ||
-                origin[axis] > aabb.max[axis])
+            if (origin[axis] < aabb.min[axis]
+                || origin[axis] > aabb.max[axis])
             {
                 return std::nullopt;
             }
-
             continue;
         }
 
@@ -63,20 +63,41 @@ std::optional<float> IntersectRayAABB(const glm::vec3& origin, const glm::vec3& 
     return tNear;
 }
 
-const Model* picking::pickModel(const Ray& ray, std::span<Model> Models)
+std::optional<std::size_t> picking::pick(const Ray& ray, std::span<const PickTarget> targets)
 {
-    const Model* model_ptr = nullptr;
-    float minDist = std::numeric_limits<float>::max();
-    for (const auto& model : Models) {
-        glm::mat4 ToModelSpace = glm::inverse(model.getTransformMatrix());
-        auto dist_opt = IntersectRayAABB(ToModelSpace * glm::vec4{ ray.origin,1.f }, ToModelSpace * glm::vec4{ ray.direction, 0.f }, model.getLocalBounds());
-        if (dist_opt.has_value()) {
-            if (dist_opt.value() < minDist) {
-                model_ptr = &model;
-                minDist = dist_opt.value();
-            }
+    std::optional<std::size_t> closestTarget;
+    float closestDistance = std::numeric_limits<float>::max();
+
+    for (std::size_t index = 0; index < targets.size(); ++index)
+    {
+        const PickTarget& target = targets[index];
+        const glm::mat4 worldToLocal = glm::inverse(target.localToWorld);
+        const glm::vec3 localOrigin{ worldToLocal * glm::vec4{ray.origin, 1.0f} };
+        const glm::vec3 localDirection{ worldToLocal * glm::vec4{ray.direction, 0.0f} };
+        const std::optional<float> distance = IntersectRayAABB(localOrigin,localDirection,target.localBounds);
+
+        if (distance && *distance < closestDistance)
+        {
+            closestTarget = index;
+            closestDistance = *distance;
         }
     }
 
-    return model_ptr;
+    return closestTarget;
+}
+
+std::optional<std::size_t> picking::pick(const Ray& ray, std::span<const Model> models)
+{
+    std::vector<PickTarget> targets;
+    targets.reserve(models.size());
+
+    for (const Model& model : models)
+    {
+        targets.push_back(PickTarget{
+            .localBounds = model.getLocalBounds(),
+            .localToWorld = model.getTransformMatrix()
+        });
+    }
+
+    return pick(ray, targets);
 }

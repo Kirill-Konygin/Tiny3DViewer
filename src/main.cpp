@@ -1,23 +1,88 @@
+#include "AxisDrag.h"
 #include "Camera.h"
 #include "Window.h"
 #include "Mesh.h"
 #include "Material.h"
+#include "Mover.h"
 #include "OrbitalTransform.h"
+#include "Picking.h"
 #include "ShaderFactory.h"
+#include "TranslateGizmo.h"
 
 #include <GLFW/glfw3.h>
 #include <glm/gtc/matrix_transform.hpp>
 #include <nfd.h>
 
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <cmath>
 #include <filesystem>
 #include <iostream>
+#include <optional>
 #include <string>
 
 #include "ModelLoader.h"
 
+constexpr float gizmoPixelLength = 120.0f;
+
+struct CursorRay
+{
+    picking::Ray ray;
+    glm::vec2 viewportSize;
+};
+
+std::optional<CursorRay> getCursorRay(
+    const Window& window,
+    const Camera& camera,
+    const OrbitalTransform& cameraTransform,
+    double mouseX,
+    double mouseY)
+{
+    int windowWidth = 0;
+    int windowHeight = 0;
+    int framebufferWidth = 0;
+    int framebufferHeight = 0;
+
+    window.getSize(windowWidth, windowHeight);
+    window.getFramebufferSize(framebufferWidth, framebufferHeight);
+
+    if (windowWidth <= 0 || windowHeight <= 0 || framebufferWidth <= 0 || framebufferHeight <= 0)
+        return std::nullopt;
+
+    const glm::vec2 screenPoint{
+        static_cast<float>(mouseX * framebufferWidth / windowWidth),
+        static_cast<float>(mouseY * framebufferHeight / windowHeight)
+    };
+    const glm::vec2 viewportSize{
+        static_cast<float>(framebufferWidth),
+        static_cast<float>(framebufferHeight)
+    };
+    const glm::mat4 viewProjection =
+        camera.GetProjectionMatrix() * glm::inverse(cameraTransform.GetMatrix());
+
+    return CursorRay{
+        .ray = picking::screenPointToRay(screenPoint, viewportSize, viewProjection),
+        .viewportSize = viewportSize
+    };
+}
+
+std::array<picking::PickTarget, 3> getArrowPickTargets(
+    const TranslateGizmo& gizmo)
+{
+    const std::span<const TranslateArrow> arrows = gizmo.GetArrows();
+    std::array<picking::PickTarget, 3> targets{};
+
+    for (std::size_t index = 0; index < targets.size(); ++index)
+    {
+        targets[index] = picking::PickTarget{
+            .localBounds = arrows[index].GetLocalBounds(),
+            .localToWorld = arrows[index].GetTransform()
+        };
+    }
+
+    return targets;
+}
 
 void openFileDialog(bool& openModelRequested, ModelLoader& loader, std::optional<Model>& model);
 
@@ -28,6 +93,9 @@ int main()
     Camera camera;
     ModelLoader loader;
     std::optional<Model> model;
+    TranslateGizmo translateGizmo;
+    AxisDrag axisDrag;
+    Mover mover;
 
     if (NFD_Init() != NFD_OKAY)
     {
@@ -68,6 +136,7 @@ int main()
 
     bool isRotating = false;
     bool firstMouseMove = true;
+    bool modelSelected = false;
     double lastMouseX = 0.0;
     double lastMouseY = 0.0;
 
@@ -76,17 +145,112 @@ int main()
             if (button != GLFW_MOUSE_BUTTON_LEFT)
                 return;
 
-            if (action == GLFW_PRESS)
-                isRotating = true;
-            else if (action == GLFW_RELEASE)
+            if (action == GLFW_RELEASE)
+            {
                 isRotating = false;
+                firstMouseMove = true;
+                axisDrag.End();
+                mover.End();
+                translateGizmo.DeselectAll();
+                return;
+            }
 
+            if (action != GLFW_PRESS)
+                return;
+
+            isRotating = false;
             firstMouseMove = true;
+
+            if (!model)
+                return;
+
+            double mouseX = 0.0;
+            double mouseY = 0.0;
+
+            window.getCursorPosition(mouseX, mouseY);
+
+            const std::optional<CursorRay> cursorRay = getCursorRay(
+                window,
+                camera,
+                cameraTransform,
+                mouseX,
+                mouseY);
+            if (!cursorRay)
+                return;
+
+            translateGizmo.SetPosition(model->getPosition());
+            translateGizmo.UpdateScaleForPixelLength(
+                glm::inverse(cameraTransform.GetMatrix()),
+                camera.GetFOV(),
+                cursorRay->viewportSize.y,
+                gizmoPixelLength);
+
+            if (modelSelected)
+            {
+                const std::array<picking::PickTarget, 3> targets =
+                    getArrowPickTargets(translateGizmo);
+                const std::optional<std::size_t> pickedIndex =
+                    picking::pick(cursorRay->ray, targets);
+
+                if (pickedIndex)
+                {
+                    std::span<TranslateArrow> arrows = translateGizmo.GetArrows();
+                    TranslateArrow& arrow = arrows[*pickedIndex];
+
+                    if (axisDrag.Begin(
+                            cursorRay->ray,
+                            translateGizmo.GetPosition(),
+                            arrow.GetDirection()))
+                    {
+                        std::array<Mover::Target, 2> moveTargets{
+                            Mover::Target{
+                                .startPosition = model->getPosition(),
+                                .setPosition = [&model](const glm::vec3& position) {
+                                    if (model)
+                                        model->setPosition(position);
+                                }
+                            },
+                            Mover::Target{
+                                .startPosition = translateGizmo.GetPosition(),
+                                .setPosition = [&translateGizmo](const glm::vec3& position) {
+                                    translateGizmo.SetPosition(position);
+                                }
+                            }
+                        };
+                        mover.Begin(moveTargets);
+
+                        translateGizmo.DeselectAll();
+                        arrow.Select();
+                        return;
+                    }
+                }
+            }
+
+            modelSelected = picking::pick(
+                cursorRay->ray,
+                std::span<Model>{&*model, 1}).has_value();
+            isRotating = true;
         }
     );
 
     const auto mouseCallbackId = window.addMouseCallback(
         [&](double mouseX, double mouseY) {
+            if (axisDrag.IsActive() && mover.IsActive())
+            {
+                const std::optional<CursorRay> cursorRay = getCursorRay(
+                    window,
+                    camera,
+                    cameraTransform,
+                    mouseX,
+                    mouseY);
+                if (!cursorRay)
+                    return;
+
+                if (const std::optional<glm::vec3> offset = axisDrag.Update(cursorRay->ray))
+                    mover.Move(*offset);
+                return;
+            }
+
             if (!isRotating)
                 return;
 
@@ -137,9 +301,27 @@ int main()
         window.clear();
         shader.Bind();
 
-        const glm::mat4 viewProjection = camera.GetProjectionMatrix() * glm::inverse(cameraTransform.GetMatrix());
+        const glm::mat4 projection = camera.GetProjectionMatrix();
+        const glm::mat4 view = glm::inverse(cameraTransform.GetMatrix());
+        const glm::mat4 viewProjection = projection * view;
         if (model)
+        {
             model->Draw(shader, viewProjection);
+            if (modelSelected)
+            {
+                int framebufferWidth = 0;
+                int framebufferHeight = 0;
+                window.getFramebufferSize(framebufferWidth, framebufferHeight);
+
+                translateGizmo.SetPosition(model->getPosition());
+                translateGizmo.UpdateScaleForPixelLength(
+                    view,
+                    camera.GetFOV(),
+                    static_cast<float>(framebufferHeight),
+                    gizmoPixelLength);
+                translateGizmo.Draw(viewProjection);
+            }
+        }
         window.update();
     }
     
